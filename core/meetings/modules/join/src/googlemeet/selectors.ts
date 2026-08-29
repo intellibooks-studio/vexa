@@ -252,6 +252,13 @@ export const googleRemovalIndicators: string[] = [
   'text="You left the meeting"',
   'text=You left the meeting',
 
+  // local patch: end-for-all shows 'Your host ended the meeting' - reversed
+  // word order defeats the 'Meeting ended' matches above, so the bot sat in
+  // silence until the alone-timer instead of completing on the event.
+  'text=ended the meeting',
+  'text=The meeting has ended',
+  'text=The call has ended',
+
   // Connection issues
   'text="Connection lost"',
   'text=Connection lost',
