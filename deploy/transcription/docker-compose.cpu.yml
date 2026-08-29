@@ -30,6 +30,55 @@ services:
       - COMPUTE_TYPE=int8
       - CPU_THREADS=${CPU_THREADS:-0}
       - API_TOKEN=${API_TOKEN:-}
+      - FAIL_FAST_WHEN_BUSY=${FAIL_FAST_WHEN_BUSY:-false}
+      - MAX_ACTIVE_REQUESTS=${MAX_ACTIVE_REQUESTS:-1}
+      - MAX_QUEUE_SIZE=${MAX_QUEUE_SIZE:-60}
+    volumes:
+      - transcription-models:/app/models
+    restart: unless-stopped
+    networks: [transcription-net]
+
+  transcription-worker-2:
+    build:
+      context: ../..
+      dockerfile: core/meetings/services/transcription/Dockerfile.cpu
+    image: vexaai/v012-transcription-cpu:${IMAGE_TAG:-dev}
+    environment:
+      - WORKER_ID=2
+      # Default `small`, not `medium`: on a CPU worker `medium` cannot keep up with real-time meeting
+      # audio and sheds load with 503 "Service busy" (a fresh self-host on a modest VM gets NO
+      # transcript). `small` keeps pace on ~4-6 vCPU (witnessed). Raise to medium/large only with GPU.
+      - MODEL_SIZE=${MODEL_SIZE:-small}
+      - DEVICE=cpu
+      - COMPUTE_TYPE=int8
+      - CPU_THREADS=${CPU_THREADS:-0}
+      - API_TOKEN=${API_TOKEN:-}
+      - FAIL_FAST_WHEN_BUSY=${FAIL_FAST_WHEN_BUSY:-false}
+      - MAX_ACTIVE_REQUESTS=${MAX_ACTIVE_REQUESTS:-1}
+      - MAX_QUEUE_SIZE=${MAX_QUEUE_SIZE:-60}
+    volumes:
+      - transcription-models:/app/models
+    restart: unless-stopped
+    networks: [transcription-net]
+
+  transcription-worker-3:
+    build:
+      context: ../..
+      dockerfile: core/meetings/services/transcription/Dockerfile.cpu
+    image: vexaai/v012-transcription-cpu:${IMAGE_TAG:-dev}
+    environment:
+      - WORKER_ID=3
+      # Default `small`, not `medium`: on a CPU worker `medium` cannot keep up with real-time meeting
+      # audio and sheds load with 503 "Service busy" (a fresh self-host on a modest VM gets NO
+      # transcript). `small` keeps pace on ~4-6 vCPU (witnessed). Raise to medium/large only with GPU.
+      - MODEL_SIZE=${MODEL_SIZE:-small}
+      - DEVICE=cpu
+      - COMPUTE_TYPE=int8
+      - CPU_THREADS=${CPU_THREADS:-0}
+      - API_TOKEN=${API_TOKEN:-}
+      - FAIL_FAST_WHEN_BUSY=${FAIL_FAST_WHEN_BUSY:-false}
+      - MAX_ACTIVE_REQUESTS=${MAX_ACTIVE_REQUESTS:-1}
+      - MAX_QUEUE_SIZE=${MAX_QUEUE_SIZE:-60}
     volumes:
       - transcription-models:/app/models
     restart: unless-stopped
