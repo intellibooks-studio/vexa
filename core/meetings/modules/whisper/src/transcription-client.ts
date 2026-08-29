@@ -109,8 +109,8 @@ export class TranscriptionClient {
       this.serviceUrl += '/v1/audio/transcriptions';
     }
     this.apiToken = config.apiToken;
-    this.maxRetries = config.maxRetries ?? 3;
-    this.retryDelayMs = config.retryDelayMs ?? 1000;
+    this.maxRetries = config.maxRetries ?? Number(process.env.WHISPER_MAX_RETRIES || 6);
+    this.retryDelayMs = config.retryDelayMs ?? Number(process.env.WHISPER_RETRY_DELAY_MS || 2000);
     this.requestTimeoutMs = config.requestTimeoutMs ?? Number(process.env.WHISPER_REQUEST_TIMEOUT_MS || 90000); // local patch: 30s default lost every chunk during STT contention; env-tunable
     this.sampleRate = config.sampleRate ?? 16000;
     this.maxSpeechDurationSec = config.maxSpeechDurationSec;
