@@ -52,3 +52,9 @@ gaps that we fixed locally and cannot afford to lose on a fresh install:
 Fetch upstream, rebase `main`; the three patch areas are small and isolated.
 If upstream fixes the Meet end-screen wording or makes the client knobs
 configurable, drop the corresponding patch.
+
+5. **Google Meet presence-based aloneness** (core/meetings/modules/join/src/googlemeet/presence.ts + bot orchestrator/join-driver/ports wiring)
+   Vexa only leaves on 10-min AUDIO SILENCE. Added a PRESENCE monitor: ends the
+   meeting when the bot is the only participant tile for BOT_ALONE_PRESENCE_WINDOW_MS
+   (default 30s). A muted/silent human still counts as company (keeps waiting).
+   Fail-safe: unknown/unreadable count => stay, never leave. Google Meet only for now.
