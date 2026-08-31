@@ -2,17 +2,17 @@ import { Page } from "playwright";
 import { log } from "../_host";
 
 // Presence-based aloneness: end the meeting when the bot is the ONLY participant
-// for a short window (everyone else left). This is DISTINCT from the audio-
-// silence aloneness (10 min) — it fires on PRESENCE, not on quiet. A participant
-// who is present but muted/silent still counts as company, so the bot keeps
-// waiting; only an empty room (bot alone) ends here.
+// for a short window. Distinct from audio-silence aloneness (10 min) — fires on
+// PRESENCE (people left), so a muted/silent human still counts as company.
 //
-// Fail-safe by construction: if the page can't be read, or the bot's own tile
-// can't be identified, we do NOT conclude "alone" — the bot STAYS. The monitor
-// fires only on a confident "zero non-bot participants".
+// Robust to self-tile detection failing: if the bot's own tile can't be
+// identified we assume exactly ONE tile is the bot (total − 1), so a missing
+// self-marker can't wedge the count. total === 0 (DOM not ready) is UNKNOWN and
+// never ends. Every poll logs its count so a live run is diagnosable.
 
 const DEFAULT_PRESENCE_WINDOW_MS = 30_000;
 const PRESENCE_POLL_MS = 3_000;
+const LOG_EVERY_MS = 15_000;
 
 function resolveWindowMs(): number {
   const raw = process.env.BOT_ALONE_PRESENCE_WINDOW_MS;
@@ -23,53 +23,103 @@ function resolveWindowMs(): number {
   return DEFAULT_PRESENCE_WINDOW_MS;
 }
 
-/** Count NON-self participant tiles in the Meet DOM (runs in the page). Returns
- *  null on any read failure (navigating/closed) so the caller treats it as
- *  UNKNOWN and keeps waiting rather than leaving. */
-async function countOthers(page: Page): Promise<number | null> {
+// NON-bot participants in a Google Meet, or null on unknown.
+async function countGoogleOthers(page: Page): Promise<number | null> {
   try {
     return await page.evaluate(() => {
-      const marker = document.querySelector('[data-self-name]');
-      const selfTile = marker ? marker.closest('[data-participant-id]') : null;
-      const selfId = selfTile ? selfTile.getAttribute('data-participant-id') : null;
-      const ids = new Set<string>();
-      document.querySelectorAll('[data-participant-id]').forEach((el) => {
-        const id = (el as HTMLElement).getAttribute('data-participant-id');
-        if (id) ids.add(id);
+      const ids = new Map<string, boolean>(); // participant id -> isSelf
+      document.querySelectorAll('[data-participant-id]').forEach((node) => {
+        const el = node as HTMLElement;
+        const id = el.getAttribute('data-participant-id');
+        if (!id) return;
+        const isSelf = el.hasAttribute('data-self-name') || !!el.querySelector('[data-self-name]');
+        if (!ids.has(id) || isSelf) ids.set(id, isSelf);
       });
-      let others = 0;
-      ids.forEach((id) => { if (id !== selfId) others += 1; });
-      return others;
+      const total = ids.size;
+      if (total === 0) return null;
+      let selfCount = 0;
+      ids.forEach((s) => { if (s) selfCount += 1; });
+      return selfCount > 0 ? total - selfCount : total - 1;
     });
   } catch {
     return null;
   }
 }
 
-export function startGooglePresenceMonitor(
+// NON-bot participants in a Teams meeting, or null on unknown. Teams' DOM has no
+// single clean participant id, so dedupe across the tile/roster surfaces.
+async function countTeamsOthers(page: Page): Promise<number | null> {
+  try {
+    return await page.evaluate(() => {
+      const ids = new Set<string>();
+      const sels = [
+        '[data-tid*="participant-tile"]', '[data-tid*="video-tile"]',
+        '[data-tid*="roster-item"]', '[data-participant-id]', '[data-user-id]',
+      ];
+      for (const s of sels) {
+        document.querySelectorAll(s).forEach((node) => {
+          const el = node as HTMLElement;
+          const id = el.getAttribute('data-participant-id')
+            || el.getAttribute('data-user-id')
+            || el.getAttribute('data-tid');
+          if (id) ids.add(id);
+        });
+      }
+      const total = ids.size;
+      if (total === 0) return null;
+      return total - 1; // assume one surface is the bot
+    });
+  } catch {
+    return null;
+  }
+}
+
+function startPresenceMonitor(
+  label: string,
   page: Page,
+  countOthers: (p: Page) => Promise<number | null>,
   onAlone?: () => void | Promise<void>,
 ): () => void {
   const windowMs = resolveWindowMs();
-  log(`Starting Google Meet presence monitor (end when alone for ${windowMs}ms)...`);
+  log(`Starting ${label} presence monitor (end when alone for ${windowMs}ms)...`);
   let aloneSince: number | null = null;
   let fired = false;
+  let lastLog = 0;
 
   const interval = setInterval(async () => {
     if (fired) return;
     const others = await countOthers(page);
-    if (others === null) return;                 // unknown → keep waiting
-    if (others > 0) { aloneSince = null; return; } // company present → reset
-    // others === 0 → only the bot is here.
     const nowMs = Date.now();
-    if (aloneSince === null) { aloneSince = nowMs; return; }
+    if (others === null) {
+      if (nowMs - lastLog >= LOG_EVERY_MS) { lastLog = nowMs; log(`presence(${label}): participant count UNKNOWN — waiting`); }
+      return;
+    }
+    if (others > 0) {
+      if (aloneSince !== null || nowMs - lastLog >= LOG_EVERY_MS) { lastLog = nowMs; log(`presence(${label}): ${others} other participant(s) present — waiting`); }
+      aloneSince = null;
+      return;
+    }
+    // others === 0 → only the bot is here.
+    if (aloneSince === null) {
+      aloneSince = nowMs;
+      log(`presence(${label}): bot appears ALONE — starting ${windowMs}ms countdown`);
+      return;
+    }
     if (nowMs - aloneSince >= windowMs) {
       fired = true;
       clearInterval(interval);
-      log(`🚪 Google Meet: bot alone (no other participants) for ${windowMs}ms — ending meeting.`);
-      try { await onAlone?.(); } catch { /* a repair/leave attempt must never break the monitor */ }
+      log(`🚪 ${label}: bot alone (no other participants) for ${windowMs}ms — ending meeting.`);
+      try { await onAlone?.(); } catch { /* a leave attempt must never break the monitor */ }
     }
   }, PRESENCE_POLL_MS);
 
   return () => clearInterval(interval);
+}
+
+export function startGooglePresenceMonitor(page: Page, onAlone?: () => void | Promise<void>): () => void {
+  return startPresenceMonitor("Google Meet", page, countGoogleOthers, onAlone);
+}
+
+export function startTeamsPresenceMonitor(page: Page, onAlone?: () => void | Promise<void>): () => void {
+  return startPresenceMonitor("Teams", page, countTeamsOthers, onAlone);
 }
