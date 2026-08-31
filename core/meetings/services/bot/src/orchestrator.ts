@@ -303,6 +303,7 @@ export function createOrchestrator(inv: Invocation, deps: OrchestratorDeps) {
       return { exitCode: 1, status: 'failed', completionReason: 'join_failure' };
     }
     const stopRemoval = deps.join.onRemoval(() => signalEnd?.('evicted'));
+    const stopPresence = deps.join.onAlonePresence?.(() => signalEnd?.('left_alone'));
     const stopAloneness = deps.aloneness.onAlone(() => signalEnd?.('left_alone'));
     const cap = opts.maxActiveMs && opts.maxActiveMs > 0
       ? setTimeout(() => signalEnd?.('max_bot_time_exceeded'), opts.maxActiveMs)
@@ -315,6 +316,7 @@ export function createOrchestrator(inv: Invocation, deps: OrchestratorDeps) {
     unsubscribe();
     stopAloneness();
     stopRemoval();
+    stopPresence?.();
     await deps.pipeline.stop().catch(() => { /* best-effort */ });
     deps.recording?.close(recordingKey);
     // Bound the leave: a hung platform leave (e.g. a slow Zoom web-client teardown) must not stall

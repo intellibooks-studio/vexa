@@ -10,7 +10,7 @@ import {
   joinMeeting,
   AdmissionError,
   leaveGoogleMeet, leaveMicrosoftTeams, leaveZoomMeeting, leaveJitsiMeeting,
-  startGoogleRemovalMonitor, startTeamsRemovalMonitor, startZoomRemovalMonitor, startJitsiRemovalMonitor,
+  startGoogleRemovalMonitor, startGooglePresenceMonitor, startTeamsRemovalMonitor, startZoomRemovalMonitor, startJitsiRemovalMonitor,
   type JoinState, type Platform as JoinPlatform, type AdmissionOutcome,
 } from '@vexa/join';
 import type { BotStatus } from './contracts.js';
@@ -91,6 +91,10 @@ export function createBrowserJoinDriver(page: Page, inv: Invocation): JoinDriver
       if (platform === 'zoom')  return startZoomRemovalMonitor(page, cb);
       if (platform === 'jitsi') return startJitsiRemovalMonitor(page, cb);
       return startGoogleRemovalMonitor(page, cb);
+    },
+    onAlonePresence(cb) {
+      if (platform === 'teams' || platform === 'zoom' || platform === 'jitsi') return () => { /* presence monitor is Google-only so far */ };
+      return startGooglePresenceMonitor(page, cb);
     },
     async leave(reason) {
       if (platform === 'teams') { await leaveMicrosoftTeams(page, undefined, reason); return; }

@@ -40,6 +40,9 @@ export interface JoinDriver {
   join(report: (s: BotStatus) => void | Promise<void>): Promise<JoinOutcome | JoinResult>;
   /** Watch for being removed from the meeting while active; returns a stop fn. */
   onRemoval(cb: () => void): () => void;
+  /** Presence-based aloneness: fire when the bot is the only participant for a
+   *  short window (people left). Optional per platform. Returns a stop fn. */
+  onAlonePresence?(cb: () => void): () => void;
   /** Leave the meeting (best-effort; never throws fatally). */
   leave(reason: string): Promise<void>;
   /** Withdraw a PENDING join request from the waiting room / pre-join screen (Bug 2): cancel the
