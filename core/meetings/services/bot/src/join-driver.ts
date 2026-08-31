@@ -10,7 +10,7 @@ import {
   joinMeeting,
   AdmissionError,
   leaveGoogleMeet, leaveMicrosoftTeams, leaveZoomMeeting, leaveJitsiMeeting,
-  startGoogleRemovalMonitor, startGooglePresenceMonitor, startTeamsPresenceMonitor, startTeamsRemovalMonitor, startZoomRemovalMonitor, startJitsiRemovalMonitor,
+  startGoogleRemovalMonitor, startGooglePresenceMonitor, startTeamsPresenceMonitor, startZoomPresenceMonitor, startTeamsRemovalMonitor, startZoomRemovalMonitor, startJitsiRemovalMonitor,
   type JoinState, type Platform as JoinPlatform, type AdmissionOutcome,
 } from '@vexa/join';
 import type { BotStatus } from './contracts.js';
@@ -94,7 +94,8 @@ export function createBrowserJoinDriver(page: Page, inv: Invocation): JoinDriver
     },
     onAlonePresence(cb) {
       if (platform === 'teams') return startTeamsPresenceMonitor(page, cb);
-      if (platform === 'zoom' || platform === 'jitsi') return () => { /* presence monitor not wired for this platform yet */ };
+      if (platform === 'zoom') return startZoomPresenceMonitor(page, cb);
+      if (platform === 'jitsi') return () => { /* jitsi presence not wired yet */ };
       return startGooglePresenceMonitor(page, cb);
     },
     async leave(reason) {

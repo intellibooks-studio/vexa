@@ -74,6 +74,21 @@ async function countTeamsOthers(page: Page): Promise<number | null> {
   }
 }
 
+// NON-bot participants in a Zoom (web client) meeting, or null on unknown. Each
+// participant tile carries a `.video-avatar__avatar-footer` name element.
+async function countZoomOthers(page: Page): Promise<number | null> {
+  try {
+    return await page.evaluate(() => {
+      let total = document.querySelectorAll('.video-avatar__avatar-footer').length;
+      if (total === 0) total = document.querySelectorAll('[class*="video-avatar"]').length;
+      if (total === 0) return null;
+      return total - 1; // assume one tile is the bot
+    });
+  } catch {
+    return null;
+  }
+}
+
 function startPresenceMonitor(
   label: string,
   page: Page,
@@ -122,4 +137,8 @@ export function startGooglePresenceMonitor(page: Page, onAlone?: () => void | Pr
 
 export function startTeamsPresenceMonitor(page: Page, onAlone?: () => void | Promise<void>): () => void {
   return startPresenceMonitor("Teams", page, countTeamsOthers, onAlone);
+}
+
+export function startZoomPresenceMonitor(page: Page, onAlone?: () => void | Promise<void>): () => void {
+  return startPresenceMonitor("Zoom", page, countZoomOthers, onAlone);
 }

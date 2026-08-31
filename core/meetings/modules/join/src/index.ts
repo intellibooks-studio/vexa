@@ -11,7 +11,7 @@ import { joinGoogleMeeting } from "./googlemeet/join";
 import { waitForGoogleMeetingAdmission, checkForGoogleAdmissionSilent } from "./googlemeet/admission";
 import { prepareForRecording, leaveGoogleMeet } from "./googlemeet/leave";
 import { startGoogleRemovalMonitor } from "./googlemeet/removal";
-import { startGooglePresenceMonitor, startTeamsPresenceMonitor } from "./googlemeet/presence";
+import { startGooglePresenceMonitor, startTeamsPresenceMonitor, startZoomPresenceMonitor } from "./googlemeet/presence";
 import { joinMicrosoftTeams } from "./msteams/join";
 import { waitForTeamsMeetingAdmission, checkForTeamsAdmissionSilent } from "./msteams/admission";
 import { prepareForRecording as prepareForTeamsRecording, leaveMicrosoftTeams } from "./msteams/leave";
@@ -137,7 +137,7 @@ export async function joinMeeting(page: Page, opts: JoinOptions): Promise<JoinRe
   return { admitted: !!admitted, state: admitted ? "admitted" : "awaiting_admission" };
 }
 
-export { joinGoogleMeeting, waitForGoogleMeetingAdmission, checkForGoogleAdmissionSilent, prepareForRecording, leaveGoogleMeet, startGoogleRemovalMonitor, startGooglePresenceMonitor, startTeamsPresenceMonitor };
+export { joinGoogleMeeting, waitForGoogleMeetingAdmission, checkForGoogleAdmissionSilent, prepareForRecording, leaveGoogleMeet, startGoogleRemovalMonitor, startGooglePresenceMonitor, startTeamsPresenceMonitor, startZoomPresenceMonitor };
 // AdmissionError carries a TYPED `outcome` (denial / lobby_timeout / join_failure / auth_session_missing).
 // It is THROWN by the join/admission path; the JoinDriver adapter catches it and maps the outcome → a
 // JoinOutcome so a host DENIAL is recorded as a permanent `rejected` — and a signed-out profile
