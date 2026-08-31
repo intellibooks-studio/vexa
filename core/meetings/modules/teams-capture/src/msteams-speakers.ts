@@ -1353,6 +1353,7 @@ export function createTeamsSpeakers(opts: TeamsSpeakersOptions): TeamsSpeakers {
     coverage.observable = observable;
     coverage.roster = rosterSeen.size;
     checkNameSources();
+    try { (window as unknown as { __vexaPresence?: unknown }).__vexaPresence = { count: found, at: Date.now() }; } catch { /* presence publish best-effort */ }
     log(`🔍 [TeamsSpeakers] Scanned ${found} participants, observing ${observable} with signal (signal-absent ${found - observable})`);
     if (!coverageWarned && found > 0 && (observable / found) < 0.5) {
       coverageWarned = true;

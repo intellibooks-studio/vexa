@@ -172,6 +172,7 @@ export function createGmeetSpeakers(opts: GmeetSpeakersOptions = {}): GmeetSpeak
 
   const timer = setInterval(() => {
     const tiles = scanTiles();
+    try { (window as unknown as { __vexaPresence?: unknown }).__vexaPresence = { count: tiles.length, at: Date.now() }; } catch { /* presence publish best-effort */ }
 
     // Report the self/host name (once) so the binder can pin it as never-bindable —
     // the data-self-name marker can render late, so we watch every scan, not just start.
