@@ -36,6 +36,7 @@ from ..service_authority import (
     ServiceAuthorityUnavailable,
 )
 from .env_flags import env_flag
+from .consent import consent_already_posted, resolve_consent_message
 from .invocation import build_invocation, build_workload_spec, mint_meeting_token
 from .ports import (
     AuthSessionBusy,
@@ -281,6 +282,9 @@ async def request_bot(
     webhook_url: Optional[str] = None,
     webhook_secret: Optional[str] = None,
     webhook_events: Optional[dict] = None,
+    # local patch (IntelliBooks fork): the request's already-validated consent line (None = not
+    # given → BOT_CONSENT_MESSAGE default; "" = explicitly none). See bot_spawn/consent.py.
+    consent_message: Optional[str] = None,
 ) -> dict:
     """Run the spawn flow and return a MeetingResponse-shaped dict.
 
@@ -296,6 +300,10 @@ async def request_bot(
     authority = authority or AllowAllServiceAuthority()
     # 1. URL.
     constructed_url = meeting_url or construct_meeting_url(platform, native_meeting_id)
+    # 1a. (fork) The consent line, resolved BEFORE any DB write: a misconfigured
+    #     BOT_CONSENT_MESSAGE raises ConsentMessageMisconfigured (503) rather than spawn a bot
+    #     without the notice the operator configured.
+    consent_line = resolve_consent_message(consent_message)
 
     # 1b. Resolve the transcription backend and gate BEFORE any DB write (C1, reorder not
     #     duplicate): the old router gate refused pre-insert; resolving here keeps that property —
@@ -577,6 +585,10 @@ async def request_bot(
     token = mint_meeting_token(
         meeting_id, user_id, platform, native_meeting_id, secret=token_secret, ttl_seconds=token_ttl_seconds
     )
+    # (fork) Once per meeting: a continued meeting whose earlier session already posted the consent
+    # line does not post it again.
+    if consent_line and reused_row is not None and consent_already_posted(reused_row.get("data")):
+        consent_line = None
     invocation = build_invocation(
         meeting_id=meeting_id,
         platform=platform,
@@ -612,6 +624,7 @@ async def request_bot(
         # silence-window module default applies (the lobby window stays forgiving for
         # human-in-the-loop dashboard joins).
         automatic_leave=automatic_leave or {"waitingRoomTimeout": lobby_budget_ms()},
+        consent_message=consent_line,
     )
 
     # 4b. THE SPAWN FENCE (F2, stage rev 193 row 26313). Re-read this row's user-stop flag from the

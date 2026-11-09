@@ -243,6 +243,9 @@ class MeetingRecord:
     #: What degraded the meeting without ending it — today the STT backend refusing chunks
     #: (kinds + counts + the backend's own detail), reported by the bot on the terminal event.
     stt_fault: Optional[Dict[str, Any]] = None
+    #: (IntelliBooks fork) How the consent line went — ``{status, detail?}``, reported by the bot on
+    #: the terminal event when a consent line was configured (bot_spawn/consent.py).
+    consent_message: Optional[Dict[str, Any]] = None
     # User intent (parent's `meeting.data.stop_requested`) — set by the DELETE/stop path, read
     # first by the exit classifier so a user stop is never mis-attributed as a failure.
     stop_requested: bool = False
@@ -281,6 +284,8 @@ class MeetingRecord:
             d["stop_requested"] = True
         if self.stt_fault is not None:
             d["stt_fault"] = dict(self.stt_fault)
+        if self.consent_message is not None:
+            d["consent_message"] = dict(self.consent_message)
         return d
 
 
@@ -505,6 +510,9 @@ class LifecycleSink:
             # lifecycle.v1 (additionalProperties: true), same as infra_fault.
             if event.get("stt_fault"):
                 rec.stt_fault = dict(event["stt_fault"])
+            # (fork) The consent-line outcome — additive on lifecycle.v1, same as stt_fault.
+            if isinstance(event.get("consent_message"), dict):
+                rec.consent_message = dict(event["consent_message"])
 
         rec.status = to
         rec.history.append(to)

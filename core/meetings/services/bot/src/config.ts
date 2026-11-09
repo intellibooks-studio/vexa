@@ -81,6 +81,9 @@ export interface Invocation {
   defaultAvatarUrl?: string;
   videoReceiveEnabled?: boolean;
   cameraEnabled?: boolean;
+  /** IntelliBooks fork: plain-text line posted ONCE in the meeting chat after admission (≤300
+   *  chars). Absent/empty ⇒ upstream behaviour (no chat message). See consent.ts. */
+  consentMessage?: string;
   // ── authenticated meeting bot (persistent browser context from S3) ──
   authenticated?: boolean;
   userdataS3Path?: string;

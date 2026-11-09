@@ -38,6 +38,8 @@ import { createSttFaultReporter } from './stt-faults.js';
 import { launchBrowser, startCaptureBridge, startRecording, restartMixedCapture, createSpeakController, type BrowserSession, type SpeakController } from './capture-bridge.js';
 import { createRemoteAudioActivityTap, createSilenceAlonenessSource, resolveAloneSilenceWindowMs } from './aloneness.js';
 import { installSignalHandlers } from './signals.js';
+import { sendMeetingChat } from '@vexa/join';
+import { createConsentAnnouncer, mergeTerminalFields } from './consent.js';
 import type {
   JoinDriver,
   Pipeline,
@@ -230,6 +232,14 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
   });
   console.log(`[bot] aloneness: silence adapter + deaf-capture guard enabled (window_ms=${aloneSilenceWindowMs})`);
   if (speakerStreamConfig) console.log(`[bot] speaker-stream tuning enabled: ${JSON.stringify(speakerStreamConfig)}`);
+  // local patch (IntelliBooks fork): the consent line — posted once in the meeting chat after
+  // admission (consent.ts). No `consentMessage` ⇒ not wired; the bot behaves exactly as upstream.
+  const consent = createConsentAnnouncer({
+    text: inv.consentMessage,
+    send: async (text) => session
+      ? sendMeetingChat(session.page, inv.platform, text)
+      : { outcome: 'chat_unavailable', detail: 'no browser session' },
+  });
 
   try {
     session = await launchBrowser(inv);                                   // L4 (O6/VM)
@@ -286,7 +296,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
     // page-side capture + recording attach + the engine start so pipeline.start() ALWAYS RESOLVES;
     // each failure surfaces LOUD via onFault (console with a full-fidelity serr(e)) instead of
     // throwing into the orchestrator's leave-on-fail backstop (which would hang the bot up).
-    pipeline = createLivePipeline({
+    const live = createLivePipeline({
       startCapture: () => startCaptureBridge(sess.page, inv, bp, signalRecorder?.sink, publishChat, remoteAudioActivity),   // on the live meeting page
       startRecording: rec ? () => startRecording(sess.page, inv, rec) : undefined,          // MediaRecorder → recording.v1
       engine: bp,
@@ -294,6 +304,11 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
         console.error(`[bot] live-pipeline: ${stage} failed (non-fatal, bot stays seated): ${serr(e)}`);
       },
     });
+    // The consent line goes out once capture/recording are up (start() runs after admission and
+    // always resolves). Fire-and-forget: it must never delay or fail the active phase.
+    pipeline = consent.enabled
+      ? { async start() { await live.start(); void consent.post(); }, stop: () => live.stop() }
+      : live;
     // Voice: tee acts so `speak`/`speak_stop` reach the SpeakController (gated on voiceAgentEnabled).
     const speak = createSpeakController(session.page, inv);
     acts = teeActs(liveActs, voiceHandler(speak));
@@ -319,7 +334,8 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<number
     aloneness,
     recording: recording as RecordingSink | undefined,
     reachability,
-    degraded: () => sttFaults.report(),
+    // + the consent-line outcome (fork; undefined when no consent line is configured).
+    degraded: () => mergeTerminalFields(sttFaults.report(), consent.report()),
   });
 
   // Disposability (P7): a termination signal ends the active phase gracefully (leave → flush →

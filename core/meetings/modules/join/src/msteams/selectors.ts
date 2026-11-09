@@ -224,6 +224,46 @@ export const teamsNameInputSelectors: string[] = [
   'input[type="text"]'
 ];
 
+// local patch (IntelliBooks fork, consent line): in-meeting chat — posting ONE
+// message after admission (../shared/chat-send.ts). Playwright-locator arrays
+// (lane 1 of the validity gate), tried in order. The meeting toolbar ids
+// (`#chat-button`, like `#hangup-button` below) and the CKEditor compose box
+// are the 2025–26 Teams web (light meeting) shape; CONFIRM against a live
+// meeting — anonymous guests may have chat disabled by tenant policy.
+export const teamsChatButtonSelectors: string[] = [
+  'button#chat-button',
+  'button[data-tid="chat-button"]',
+  'button[aria-label="Chat"]',
+  'button[aria-label*="Show conversation"]',
+  'button[aria-label*="Open chat"]'
+];
+
+export const teamsChatInputSelectors: string[] = [
+  '[data-tid="ckeditor"][contenteditable="true"]',
+  'div[data-tid="ckeditor"]',
+  '[contenteditable="true"][aria-label*="Type a message"]',
+  '[role="textbox"][aria-label*="Type a message"]',
+  '[contenteditable="true"][placeholder*="Type a message"]'
+];
+
+export const teamsChatSendButtonSelectors: string[] = [
+  'button[data-tid="newMessageCommands-send"]',
+  'button[name="send"]',
+  'button[aria-label="Send"]',
+  'button[title="Send"]'
+];
+
+// Chat switched off for this participant (organizer turned meeting chat off,
+// or tenant policy blocks anonymous chat). Substring text matches.
+export const teamsChatDisabledIndicators: string[] = [
+  'text=turned off chat',
+  'text=chat is disabled',
+  'text=chat has been disabled',
+  'text=chat is unavailable',
+  'text=can\'t send messages',
+  'text=can’t send messages'
+];
+
 // Primary hangup button selector (most reliable)
 export const teamsPrimaryHangupButtonSelector = '#hangup-button';
 

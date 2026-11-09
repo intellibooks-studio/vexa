@@ -25,6 +25,9 @@ import { waitForJitsiMeetingAdmission, checkForJitsiAdmissionSilent } from "./ji
 import { leaveJitsiMeeting } from "./jitsi/leave";
 import { startJitsiRemovalMonitor } from "./jitsi/removal";
 import { startDebugView } from "./shared/escalation";
+import { sendGoogleMeetChatMessage } from "./googlemeet/chat";
+import { sendTeamsChatMessage } from "./msteams/chat";
+import type { ChatSendOutcome, ChatSendResult, ChatSendOptions } from "./shared/chat-send";
 import { setHooks, type BotConfig, type Hooks, type JoinState } from "./_host";
 import { JOIN_BROWSER_ARGS, getJoinBrowserArgs } from "./browser-args";
 
@@ -158,3 +161,15 @@ export {
 export type { TeamsJoinRedirectReason } from "./msteams/auth-redirect";
 export { joinZoomMeeting, buildZoomWebClientUrl, waitForZoomMeetingAdmission, checkForZoomAdmissionSilent, leaveZoomMeeting, dismissZoomPopups, startZoomRemovalMonitor };
 export { joinJitsiMeeting, buildJitsiMeetingUrl, waitForJitsiMeetingAdmission, checkForJitsiAdmissionSilent, leaveJitsiMeeting, startJitsiRemovalMonitor };
+
+// local patch (IntelliBooks fork, consent line): post ONE message in the meeting chat (an admitted
+// page). Google Meet + MS Teams only for now; other platforms answer `chat_unavailable` — never throws.
+export { sendGoogleMeetChatMessage, sendTeamsChatMessage };
+export type { ChatSendOutcome, ChatSendResult, ChatSendOptions };
+export async function sendMeetingChat(
+  page: Page, platform: Platform, text: string, opts?: ChatSendOptions,
+): Promise<ChatSendResult> {
+  if (platform === "google_meet") return sendGoogleMeetChatMessage(page, text, opts);
+  if (platform === "teams") return sendTeamsChatMessage(page, text, opts);
+  return { outcome: "chat_unavailable", detail: `chat sending is not implemented for ${platform}` };
+}

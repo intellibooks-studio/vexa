@@ -25,6 +25,7 @@ from ..service_authority import (
     ServiceAuthorityDenied,
     ServiceAuthorityUnavailable,
 )
+from .consent import ConsentMessageMisconfigured, InvalidConsentMessage, normalize_consent_message
 from .env_flags import InvalidFlagValue, resolve_spawn_flag
 from .ports import (
     AuthSessionBusy,
@@ -77,6 +78,15 @@ def _resolve_transcribe_enabled(value: Optional[object]) -> bool:
         return resolve_spawn_flag("TRANSCRIBE_ENABLED", value, default=True,
                                   field="transcribe_enabled")
     except InvalidFlagValue as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+def _resolve_consent_message(value: Optional[object]) -> Optional[str]:
+    """(fork) The optional ``consent_message`` — one line of plain text, ≤ 300 chars; 422 otherwise.
+    Accepted off the OPEN api.v1 request body, like ``continue_meeting``. See bot_spawn/consent.py."""
+    try:
+        return normalize_consent_message(value)
+    except InvalidConsentMessage as e:
         raise HTTPException(status_code=422, detail=str(e))
 
 
@@ -371,6 +381,7 @@ def build_router(
             )
 
         transcribe_enabled = _resolve_transcribe_enabled(body.get("transcribe_enabled"))
+        consent_message = _resolve_consent_message(body.get("consent_message"))
 
         try:
             meeting = await request_bot(
@@ -397,8 +408,12 @@ def build_router(
                 webhook_url=x_user_webhook_url,
                 webhook_secret=x_user_webhook_secret,
                 webhook_events=webhook_events,
+                consent_message=consent_message,
             )
         except TranscriptionNotConfigured as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ConsentMessageMisconfigured as e:
+            # (fork) An invalid BOT_CONSENT_MESSAGE default is a deployment misconfiguration.
             raise HTTPException(status_code=503, detail=str(e))
         except AuthSessionNotConfigured as e:
             # Deployment misconfiguration (BOT_AUTHENTICATED without a complete userdata store) —

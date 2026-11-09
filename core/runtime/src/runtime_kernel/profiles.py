@@ -105,6 +105,10 @@ def default_registry() -> ProfileRegistry:
             "BOT_SPEAKER_CONFIRM_THRESHOLD",
             "BOT_SPEAKER_MAX_BUFFER_SEC",
             "BOT_SPEAKER_IDLE_TIMEOUT_SEC",
+            # Fork patch 8: the STT client's timeout/retries (patch 2) reach spawned bots too.
+            "WHISPER_REQUEST_TIMEOUT_MS",
+            "WHISPER_MAX_RETRIES",
+            "WHISPER_RETRY_DELAY_MS",
         )
         if os.environ.get(key, "").strip()
     }

@@ -257,6 +257,19 @@ function createGmeetBotPipeline(
   };
 }
 
+/**
+ * local patch (IntelliBooks fork, STT cost): the same BOT_SPEAKER_* window tuning Google Meet reads
+ * (config.ts speakerStreamConfigFromEnv) also drives the Teams CSRC lane's shared GMeet-compatible
+ * buffer. Unset ⇒ `{}` ⇒ the Teams options are exactly upstream's. A longer submit interval also
+ * stretches the lane's draft-persist timeout (default 4 s = 2 × the default 2 s interval) so a draft
+ * is not promoted to a durable row before its first confirmation could even arrive.
+ */
+function teamsWindowTuning(config?: SpeakerStreamManagerConfig): Pick<TeamsCsrcGmeetPipelineOptions, 'buffer' | 'persistTimeoutMs'> {
+  if (!config) return {};
+  const persist = config.submitInterval ? Math.max(4000, 2 * config.submitInterval * 1000) : undefined;
+  return { buffer: { ...config }, ...(persist !== undefined ? { persistTimeoutMs: persist } : {}) };
+}
+
 /** Build the Teams-only CSRC virtual-channel lane. The shared GMeet-compatible buffer owns
  * cadence, prompt feedback, LocalAgreement and terminal fallback. This adapter owns only the bot
  * ports: mixed PCM/identity evidence in, transcript.v1 publish/retract out. */
@@ -267,6 +280,7 @@ function createTeamsBotPipeline(
   createTranscriber: TeamsTranscriberFactory = (options) => new TeamsCsrcGmeetPipeline(options),
   onObservation?: (source: string, obs: Record<string, unknown>, tMs?: number) => void,
   selfName?: string,
+  config?: SpeakerStreamManagerConfig,
 ): BotPipeline {
   const hintCounters: HintCounters = { received: 0, matched: 0, missed: 0 };
   const reportError = onError ?? ((error: unknown) => console.error(`[bot] pipeline(teams-csrc): ${String(error)}`));
@@ -274,6 +288,7 @@ function createTeamsBotPipeline(
   const transcriber = createTranscriber({
     transcribe: (pcm, prompt) => transcribe(pcm, prompt),
     selfName,
+    ...teamsWindowTuning(config),
     onSegment: (segment) => {
       const task = !segment.completed && !segment.text.trim()
         ? sink.retract?.([segment.segmentId])
@@ -450,6 +465,7 @@ export function createBotPipeline(
   if (inv.platform === 'teams') {
     return createTeamsBotPipeline(
       transcribe, sink, opts.onError, opts.createTeamsTranscriber, opts.onObservation, inv.botName,
+      opts.config,   // fork: BOT_SPEAKER_* window tuning reaches Teams too (teamsWindowTuning)
     );
   }
   if (isMixedLanePlatform(inv.platform)) {

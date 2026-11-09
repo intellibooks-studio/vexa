@@ -96,6 +96,15 @@
    "description": "server-side bot participant name used by POST /bots when bot_name is omitted"
   },
   {
+   "key": "BOT_CONSENT_MESSAGE",
+   "class": "defaulted",
+   "default": "(unset — no chat message; upstream behaviour)",
+   "description": "IntelliBooks fork: default one-line plain-text notice (<= 300 chars) every spawned bot posts once in the meeting chat after admission, when POST /bots omits consent_message; an invalid value refuses spawns with 503",
+   "targets": [
+    "compose"
+   ]
+  },
+  {
    "key": "TRANSCRIPTION_SERVICE_URL",
    "class": "capability",
    "capability": "stt",

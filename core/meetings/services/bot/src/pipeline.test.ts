@@ -282,6 +282,31 @@ async function main(): Promise<void> {
     check('Teams stop flushes/disposes the CSRC/GMeet lane', disposed);
   }
 
+  // ── 6b) (IntelliBooks fork, STT cost) the BOT_SPEAKER_* window tuning reaches the Teams lane; with
+  //     no tuning the Teams options carry no buffer/persist override (upstream-identical). ──
+  {
+    const seen: TeamsCsrcGmeetPipelineOptions[] = [];
+    const factory = (received: TeamsCsrcGmeetPipelineOptions) => {
+      seen.push(received);
+      return {
+        feedMixedAudio() { /* */ }, recordTransportEvent() { /* */ }, recordHint() { /* */ },
+        recordCaption() { /* */ }, recordRosterName() { /* */ }, recordRosterCoverage() { /* */ },
+        async dispose() { /* */ },
+      };
+    };
+    createBotPipeline(baseInv({ platform: 'teams' }), captureSink(), { createTeamsTranscriber: factory });
+    createBotPipeline(baseInv({ platform: 'teams' }), captureSink(), {
+      createTeamsTranscriber: factory, config: { submitInterval: 8, minAudioDuration: 3, maxBufferDuration: 30 },
+    });
+    check('Teams without tuning: no buffer/persist override (upstream defaults)',
+      seen[0] !== undefined && !('buffer' in seen[0]) && !('persistTimeoutMs' in seen[0]), JSON.stringify(Object.keys(seen[0] ?? {})));
+    check('Teams with tuning: interval/min/max reach the shared buffer',
+      seen[1]?.buffer?.submitInterval === 8 && seen[1]?.buffer?.minAudioDuration === 3 && seen[1]?.buffer?.maxBufferDuration === 30,
+      JSON.stringify(seen[1]?.buffer));
+    check('Teams with an 8 s interval: draft persist timeout stretches to 16 s',
+      seen[1]?.persistTimeoutMs === 16_000, String(seen[1]?.persistTimeoutMs));
+  }
+
   // ── 7) LEGACY MIXED LANE pending RETRACTION (transcript de-dup): the mixed lane republishes its pending
   //     tail as a FULL-REPLACE block. The bot's egress is append-only + the terminal upserts by id, so a
   //     draft id that DROPS OUT of the block (confirmed under a new seq id, tail shrank, turn closed) must

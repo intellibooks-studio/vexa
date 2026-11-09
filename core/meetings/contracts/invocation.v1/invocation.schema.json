@@ -49,6 +49,7 @@
         "defaultAvatarUrl": { "type": "string", "format": "uri" },
         "videoReceiveEnabled": { "type": "boolean" },
         "cameraEnabled": { "type": "boolean" },
+        "consentMessage": { "type": "string", "maxLength": 300, "description": "plain-text line the bot posts ONCE in the meeting chat right after admission (e.g. a recording/transcription notice); absent or empty = post nothing" },
         "authenticated": { "type": "boolean", "description": "persistent browser context from S3" },
         "userdataS3Path": { "type": "string" },
         "s3Endpoint": { "type": "string" },

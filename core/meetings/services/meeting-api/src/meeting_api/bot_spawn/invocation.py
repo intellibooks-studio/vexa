@@ -157,6 +157,7 @@ def build_invocation(
     s3_bucket: Optional[str] = None,
     s3_access_key: Optional[str] = None,
     s3_secret_key: Optional[str] = None,
+    consent_message: Optional[str] = None,
 ) -> dict:
     """Assemble the bot's ``invocation.v1`` Invocation (the parent's ``BOT_CONFIG``).
 
@@ -202,6 +203,9 @@ def build_invocation(
         "s3Bucket": s3_bucket,
         "s3AccessKey": s3_access_key,
         "s3SecretKey": s3_secret_key,
+        # local patch (IntelliBooks fork): the one chat line the bot posts after admission
+        # (bot_spawn/consent.py). None-stripped ⇒ the bot posts nothing (upstream behaviour).
+        "consentMessage": consent_message,
     }
     invocation = {k: v for k, v in invocation.items() if v is not None}
     conforms_invocation(invocation)

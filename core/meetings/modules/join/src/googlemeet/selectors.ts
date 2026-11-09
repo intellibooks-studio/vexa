@@ -481,6 +481,45 @@ export const googlePeopleButtonSelectors: string[] = [
   'button[data-tooltip*="Participants"]'
 ];
 
+// local patch (IntelliBooks fork, consent line): in-meeting chat — posting ONE
+// message after admission (../shared/chat-send.ts). Playwright-locator arrays
+// (lane 1 of the validity gate), tried in order. Best-effort against the
+// 2025–26 Meet UI; CONFIRM against a live meeting when Meet changes its chat
+// panel (aria-labels are English — the UI locale is pinned, #856).
+export const googleChatButtonSelectors: string[] = [
+  'button[aria-label="Chat with everyone"]',
+  'button[aria-label*="Chat with everyone"]',
+  'button[aria-label*="chat with everyone"]',
+  'button[data-tooltip*="Chat with everyone"]',
+  'button[aria-label^="Chat"]'
+];
+
+export const googleChatInputSelectors: string[] = [
+  'textarea[aria-label="Send a message"]',
+  'textarea[aria-label*="Send a message"]',
+  'textarea[placeholder*="Send a message"]',
+  'textarea[aria-label*="message to everyone"]'
+];
+
+export const googleChatSendButtonSelectors: string[] = [
+  'button[aria-label="Send a message"]',
+  'button[aria-label="Send message"]',
+  'button[aria-label*="Send message"]',
+  'button[aria-label="Send"]'
+];
+
+// The host switched chat off for participants ("Let participants send chat
+// messages" off). Substring text matches; the panel then shows a notice and/or
+// a disabled message box (the disabled box is also detected structurally).
+export const googleChatDisabledIndicators: string[] = [
+  'text=turned off chat',
+  'text=chat is turned off',
+  'text=chat messages are turned off',
+  'text=only hosts can send messages',
+  'text=can\'t send messages',
+  'text=can’t send messages'
+];
+
 // EXECUTION-CONTEXT DECLARATION — consumed by src/shared/selector-validity.test.ts.
 // Arrays named here ship into page.evaluate and run through
 // document.querySelector, so the gate additionally CSS-parses them: a
